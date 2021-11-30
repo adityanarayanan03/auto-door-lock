@@ -1,10 +1,14 @@
 #include <SPI.h>
 #include <MFRC522.h>
+#include <Servo.h>
+#include "uids.h"
 
 #define RST_PIN         9          // Configurable, see typical pin layout above
 #define SS_PIN          10         // Configurable, see typical pin layout above
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance
+String uid = String();
+Servo servo;
 
 void setup() {
 	Serial.begin(9600);		// Initialize serial communications with the PC
@@ -14,6 +18,8 @@ void setup() {
 	delay(4);				// Optional delay. Some board do need more time after init to be ready, see Readme
 	mfrc522.PCD_DumpVersionToSerial();	// Show details of PCD - MFRC522 Card Reader details
 	Serial.println(F("Scan PICC to see UID, SAK, type, and data blocks..."));
+	servo.attach(3);
+	servo.write(0);
 }
 
 void loop() {
@@ -26,15 +32,19 @@ void loop() {
 	if (!mfrc522.PICC_ReadCardSerial()) {
 		return;
 	}
-
-	// Dump debug info about the card; PICC_HaltA() is automatically called
-	Serial.print(F("Card UID:"));
 	for (byte i = 0; i < (&mfrc522.uid)->size; i++) {
-		if((&mfrc522.uid)->uidByte[i] < 0x10)
-			Serial.print(F(" 0"));
-		else
-			Serial.print(F(" "));
-		Serial.print((&mfrc522.uid)->uidByte[i], HEX);
-	} 
-	Serial.println();
+		uid += String((&mfrc522.uid)->uidByte[i], HEX);
+	}
+	if (DEBUG)
+		Serial.println(uid);
+	if (uid.equals(BEN) || uid.equals(ADI) || uid.equals(IRIS)) {
+		servo.write(90);
+		Serial.println("Unlocked");
+		delay(2000); // Need to increase this in the actual version to give time for the door to close
+		servo.write(0);
+		Serial.println("Locked");
+	} else {
+		Serial.println("Invalid card");
+	}
+	uid = String();
 }
